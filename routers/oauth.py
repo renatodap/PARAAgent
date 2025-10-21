@@ -60,8 +60,15 @@ async def initiate_google_oauth(
     # Build Google OAuth URL
     redirect_uri = f"{settings.FRONTEND_URL}/oauth/callback"
     scopes = [
+        # Calendar
         "https://www.googleapis.com/auth/calendar.readonly",
         "https://www.googleapis.com/auth/calendar.events",
+        # Gmail
+        "https://www.googleapis.com/auth/gmail.readonly",
+        "https://www.googleapis.com/auth/gmail.modify",  # For labeling emails
+        # Google Tasks
+        "https://www.googleapis.com/auth/tasks",
+        # User info
         "https://www.googleapis.com/auth/userinfo.email",
         "https://www.googleapis.com/auth/userinfo.profile"
     ]
