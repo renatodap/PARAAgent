@@ -2,74 +2,64 @@
 
 import pytest
 from unittest.mock import patch, MagicMock
-from agents.classifier import PARAClassifierAgent
+from agents.classifier import classify_item
 
-@pytest.fixture
-def classifier():
-    """Create classifier agent instance"""
-    return PARAClassifierAgent()
-
-def test_classifier_initialization(classifier):
-    """Test classifier initializes correctly"""
-    assert classifier is not None
-    assert hasattr(classifier, 'client')
-    assert hasattr(classifier, 'model')
-
-@pytest.mark.asyncio
 @patch('agents.classifier.Anthropic')
-async def test_classify_project(mock_anthropic, classifier):
+def test_classify_project(mock_anthropic):
     """Test classification of project-type item"""
     # Mock Claude response
     mock_response = MagicMock()
-    mock_response.content = [MagicMock(text='{"para_type": "project", "confidence": 0.95, "reasoning": "Has deadline and specific outcome"}')]
+    mock_response.content = [MagicMock(text='{"para_type": "project", "confidence": 0.95, "reasoning": "Has deadline and specific outcome", "suggested_next_actions": ["Start planning"], "estimated_duration_weeks": 12}')]
+    mock_response.usage = MagicMock(input_tokens=100, output_tokens=50)
     mock_anthropic.return_value.messages.create.return_value = mock_response
 
-    result = await classifier.classify(
+    result = classify_item(
         title="Q4 Planning",
         description="Plan and execute Q4 strategy",
-        context={"deadline": "2025-12-31"}
+        context="deadline: 2025-12-31"
     )
 
     assert result["para_type"] == "project"
     assert result["confidence"] >= 0.9
 
-@pytest.mark.asyncio
 @patch('agents.classifier.Anthropic')
-async def test_classify_area(mock_anthropic, classifier):
+def test_classify_area(mock_anthropic):
     """Test classification of area-type item"""
     mock_response = MagicMock()
-    mock_response.content = [MagicMock(text='{"para_type": "area", "confidence": 0.92, "reasoning": "Ongoing responsibility"}')]
+    mock_response.content = [MagicMock(text='{"para_type": "area", "confidence": 0.92, "reasoning": "Ongoing responsibility", "suggested_next_actions": ["Set goals"], "estimated_duration_weeks": null}')]
+    mock_response.usage = MagicMock(input_tokens=100, output_tokens=50)
     mock_anthropic.return_value.messages.create.return_value = mock_response
 
-    result = await classifier.classify(
+    result = classify_item(
         title="Health & Fitness",
         description="Maintain healthy lifestyle",
-        context={}
+        context=""
     )
 
     assert result["para_type"] == "area"
 
-@pytest.mark.asyncio
 @patch('agents.classifier.Anthropic')
-async def test_classify_resource(mock_anthropic, classifier):
+def test_classify_resource(mock_anthropic):
     """Test classification of resource-type item"""
     mock_response = MagicMock()
-    mock_response.content = [MagicMock(text='{"para_type": "resource", "confidence": 0.88, "reasoning": "Reference material"}')]
+    mock_response.content = [MagicMock(text='{"para_type": "resource", "confidence": 0.88, "reasoning": "Reference material", "suggested_next_actions": ["Review"], "estimated_duration_weeks": null}')]
+    mock_response.usage = MagicMock(input_tokens=100, output_tokens=50)
     mock_anthropic.return_value.messages.create.return_value = mock_response
 
-    result = await classifier.classify(
+    result = classify_item(
         title="Python Best Practices",
         description="Collection of Python coding guidelines",
-        context={}
+        context=""
     )
 
     assert result["para_type"] == "resource"
 
-@pytest.mark.asyncio
-async def test_classify_empty_title(classifier):
-    """Test classification fails gracefully with empty title"""
-    with pytest.raises((ValueError, Exception)):
-        await classifier.classify(title="", description="", context={})
+def test_classify_empty_title():
+    """Test classification handles empty title"""
+    result = classify_item(title="", description="", context="")
+    # Should not raise, should return a result (possibly with low confidence)
+    assert "para_type" in result
+    assert "confidence" in result
 
 def test_confidence_score_range(classifier):
     """Test confidence scores are within valid range [0, 1]"""

@@ -1,7 +1,7 @@
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from datetime import datetime, timedelta
 from database import supabase
-from agents.reviewer import WeeklyReviewerAgent
+from agents.reviewer import generate_weekly_review
 from mcp.sync_service import MCPSyncService
 from notifications import email_service
 from typing import List
@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler()
 
 # Initialize services
-reviewer_agent = WeeklyReviewerAgent()
 mcp_sync = MCPSyncService()
 
 async def get_all_active_users() -> List[dict]:
@@ -43,10 +42,9 @@ async def generate_weekly_reviews():
 
                 # Generate review
                 logger.info(f"Generating review for user {user['id']}")
-                review = await reviewer_agent.generate_review(
+                review = generate_weekly_review(
                     user_id=user['id'],
-                    week_start=week_start.isoformat(),
-                    week_end=week_end.isoformat()
+                    week_start=week_start
                 )
 
                 # Send email notification

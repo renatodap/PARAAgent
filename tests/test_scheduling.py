@@ -3,12 +3,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 from datetime import datetime, timedelta
-from agents.scheduler import TaskSchedulerAgent
-
-@pytest.fixture
-def scheduler():
-    """Create scheduler agent instance"""
-    return TaskSchedulerAgent()
+from agents.scheduler import auto_schedule_tasks
 
 @pytest.fixture
 def sample_tasks():
@@ -56,21 +51,16 @@ def sample_calendar():
         }
     ]
 
-def test_scheduler_initialization(scheduler):
-    """Test scheduler initializes correctly"""
-    assert scheduler is not None
-    assert hasattr(scheduler, 'client')
-
-@pytest.mark.asyncio
 @patch('agents.scheduler.Anthropic')
-async def test_schedule_tasks(mock_anthropic, scheduler, sample_tasks, sample_calendar):
+def test_schedule_tasks(mock_anthropic, sample_tasks, sample_calendar):
     """Test basic task scheduling"""
     # Mock Claude response with scheduled tasks
     mock_response = MagicMock()
-    mock_response.content = [MagicMock(text='{"scheduled_tasks": [{"task_id": "task-1", "scheduled_time": "2025-10-23T10:00:00Z"}]}')]
+    mock_response.content = [MagicMock(text='{"scheduled_tasks": [{"task_id": "task-1", "scheduled_time": "2025-10-23T10:00:00Z", "reasoning": "Fits schedule"}]}')]
+    mock_response.usage = MagicMock(input_tokens=200, output_tokens=100)
     mock_anthropic.return_value.messages.create.return_value = mock_response
 
-    result = await scheduler.auto_schedule(
+    result = auto_schedule_tasks(
         user_id="test-user",
         tasks=sample_tasks,
         calendar_events=sample_calendar
@@ -79,10 +69,9 @@ async def test_schedule_tasks(mock_anthropic, scheduler, sample_tasks, sample_ca
     assert "scheduled_tasks" in result
     assert len(result["scheduled_tasks"]) > 0
 
-@pytest.mark.asyncio
-async def test_schedule_empty_tasks(scheduler):
+def test_schedule_empty_tasks():
     """Test scheduling with no tasks"""
-    result = await scheduler.auto_schedule(
+    result = auto_schedule_tasks(
         user_id="test-user",
         tasks=[],
         calendar_events=[]
@@ -117,15 +106,15 @@ def test_no_conflict():
     has_conflict = task_start < meeting_end and task_end > meeting_start
     assert has_conflict == False
 
-@pytest.mark.asyncio
 @patch('agents.scheduler.Anthropic')
-async def test_priority_ordering(mock_anthropic, scheduler, sample_tasks):
+def test_priority_ordering(mock_anthropic, sample_tasks):
     """Test high priority tasks are scheduled first"""
     mock_response = MagicMock()
     mock_response.content = [MagicMock(text='{"scheduled_tasks": [], "reasoning": "Prioritized by urgency"}')]
+    mock_response.usage = MagicMock(input_tokens=200, output_tokens=100)
     mock_anthropic.return_value.messages.create.return_value = mock_response
 
-    result = await scheduler.auto_schedule(
+    result = auto_schedule_tasks(
         user_id="test-user",
         tasks=sample_tasks,
         calendar_events=[]
@@ -142,8 +131,7 @@ def test_task_duration_validation():
     assert valid_duration > 0
     assert invalid_duration <= 0
 
-@pytest.mark.asyncio
-async def test_schedule_respects_working_hours(scheduler):
+def test_schedule_respects_working_hours():
     """Test scheduling doesn't schedule tasks outside working hours"""
     # This would test that tasks aren't scheduled before 8am or after 6pm
     # Implementation depends on scheduler logic
