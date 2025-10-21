@@ -1,8 +1,11 @@
 [phases.setup]
-nixPkgs = ["python312", "tesseract"]
+nixPkgs = ["python312", "postgresql"]
 
 [phases.install]
 cmds = ["pip install -r requirements.txt"]
+
+[phases.build]
+cmds = []
 
 [start]
 cmd = "uvicorn main:app --host 0.0.0.0 --port $PORT"
