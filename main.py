@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 import logging
 
 # Import routers
-from routers import para, tasks, weekly_review, search, integrations, beta, files
+from routers import para, tasks, weekly_review, search, integrations, beta, files, capture
 
 # Import background jobs
 from jobs.scheduler import start_scheduler, shutdown_scheduler
@@ -86,6 +86,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 # Include routers
+app.include_router(capture.router, prefix="/api/capture", tags=["Quick Capture"])
 app.include_router(para.router, prefix="/api/para", tags=["PARA"])
 app.include_router(tasks.router, prefix="/api/tasks", tags=["Tasks"])
 app.include_router(weekly_review.router, prefix="/api/review", tags=["Weekly Review"])

@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     # Anthropic API
     ANTHROPIC_API_KEY: str
 
+    # OpenRouter API (for voice transcription)
+    OPENROUTER_API_KEY: Optional[str] = None
+
     # Google OAuth (for MCP integrations)
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None
