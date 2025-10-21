@@ -8,7 +8,7 @@ from config import settings
 from utils.pdf_extractor import PDFExtractor
 from utils.ocr_extractor import OCRExtractor
 from utils.web_archiver import WebArchiver
-from agents.classifier import PARAClassifierAgent
+from agents.classifier import classify_item
 import uuid
 import os
 import tempfile
@@ -24,7 +24,6 @@ logger = logging.getLogger(__name__)
 pdf_extractor = PDFExtractor()
 ocr_extractor = OCRExtractor()
 web_archiver = WebArchiver()
-classifier = PARAClassifierAgent()
 
 # File size limits
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
@@ -203,10 +202,10 @@ async def process_pdf(file_id: str, user_id: str, content: bytes, filename: str)
 
         # AI Classification
         logger.info(f"Classifying PDF with AI: {title}")
-        classification = await classifier.classify(
+        classification = classify_item(
             title=title,
             description=extracted_text[:500],  # First 500 chars for classification
-            context={"file_type": "pdf", "page_count": page_count}
+            context=f"file_type: pdf, page_count: {page_count}"
         )
 
         para_type = classification.get('para_type', 'resource')  # Default to resource for PDFs
@@ -317,22 +316,18 @@ async def process_image(file_id: str, user_id: str, content: bytes, filename: st
 
         # AI Classification
         logger.info(f"Classifying image with AI: {title}")
-        classification_context = {
-            "file_type": "image",
-            "ocr_confidence": ocr_confidence,
-            "has_text": len(ocr_text) > 20
-        }
+        classification_context = f"file_type: image, ocr_confidence: {ocr_confidence}, has_text: {len(ocr_text) > 20}"
 
         if ocr_text and len(ocr_text.strip()) > 50:
             # Use OCR text for classification
-            classification = await classifier.classify(
+            classification = classify_item(
                 title=title,
                 description=ocr_text[:500],
                 context=classification_context
             )
         else:
             # Minimal text - classify based on filename
-            classification = await classifier.classify(
+            classification = classify_item(
                 title=title,
                 description=f"Image file: {filename}",
                 context=classification_context
@@ -489,15 +484,10 @@ async def process_link(file_id: str, user_id: str, url: str):
 
         # AI Classification
         logger.info(f"Classifying link with AI: {title}")
-        classification = await classifier.classify(
+        classification = classify_item(
             title=title,
             description=description or content_text[:500],
-            context={
-                "file_type": "link",
-                "url": url,
-                "word_count": word_count,
-                "site_name": metadata.get('site_name')
-            }
+            context=f"file_type: link, url: {url}, word_count: {word_count}, site_name: {metadata.get('site_name')}"
         )
 
         para_type = classification.get('para_type', 'resource')  # Default to resource for links
