@@ -3,14 +3,7 @@ from datetime import datetime, timedelta
 from database import supabase
 from agents.reviewer import WeeklyReviewerAgent
 from mcp.sync_service import MCPSyncService
-try:
-    from email import email_service
-except ImportError:
-    # Fallback if email module conflicts with built-in
-    import sys
-    import os
-    sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-    from email import email_service
+from notifications import email_service
 from typing import List
 import logging
 
