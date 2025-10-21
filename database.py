@@ -127,5 +127,35 @@ class DatabaseHelper:
         return DatabaseHelper.insert_record("agent_actions", log_data)
 
 
+def get_user_mcp_credentials(user_id: str, integration_type: str) -> Optional[Dict[str, str]]:
+    """Get decrypted OAuth credentials for a user's MCP integration.
+
+    Args:
+        user_id: User UUID
+        integration_type: Type of integration (e.g., 'google_calendar')
+
+    Returns:
+        Dict with access_token and refresh_token, or None if not found
+    """
+    from mcp.sync_service import decrypt_token
+
+    integration = supabase.table("mcp_integrations")\
+        .select("*")\
+        .eq("user_id", user_id)\
+        .eq("integration_type", integration_type)\
+        .eq("is_enabled", True)\
+        .execute().data
+
+    if not integration:
+        return None
+
+    integration = integration[0]
+
+    return {
+        'access_token': decrypt_token(integration['oauth_token_encrypted']),
+        'refresh_token': decrypt_token(integration['refresh_token_encrypted']) if integration.get('refresh_token_encrypted') else None
+    }
+
+
 # Convenience instance
 db = DatabaseHelper()
