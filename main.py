@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 import logging
 
 # Import routers
-from routers import para, tasks, weekly_review, search, integrations, beta, files, capture, oauth, google_services, agent
+from routers import para, tasks, weekly_review, search, integrations, beta, files, capture, oauth, google_services, agent, insights
 
 # Import background jobs
 from jobs.scheduler import start_scheduler, shutdown_scheduler
@@ -97,6 +97,7 @@ app.include_router(search.router, prefix="/api/search", tags=["Search"])
 app.include_router(integrations.router, prefix="/api/integrations", tags=["Integrations"])
 app.include_router(beta.router, prefix="/api/beta", tags=["Beta Waitlist"])
 app.include_router(files.router, prefix="/api/files", tags=["File Management"])
+app.include_router(insights.router, tags=["AI Insights"])
 
 
 @app.get("/")
