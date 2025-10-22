@@ -1,0 +1,112 @@
+# Week of {{ week_start }} to {{ week_end }}
+
+## Summary
+
+You completed **{{ completed_count }} tasks** this week{% if completed_count > last_week_count %} - up from {{ last_week_count }} last week! 📈{% elif completed_count < last_week_count %} - down from {{ last_week_count }} last week.{% endif %}
+
+{% if top_project %}Top focus area: **{{ top_project }}**{% endif %}
+
+---
+
+## Wins This Week 🎉
+
+{% for task in top_wins %}
+- ✅ {{ task.title }}{% if task.priority == 'high' or task.priority == 'urgent' %} (High Priority){% endif %}
+{% endfor %}
+
+{% if completed_count >= 10 %}
+*Strong productivity this week! {{ completed_count }} tasks completed shows great momentum.*
+{% elif completed_count >= 5 %}
+*Solid week of progress. Keep up the consistent effort!*
+{% elif completed_count > 0 %}
+*Every task completed is progress. Focus on consistency over volume.*
+{% endif %}
+
+---
+
+## Active Projects
+
+{% for project in active_projects %}
+### {{ project.title }}
+{% if project.progress %}Progress: {{ project.progress }}%{% endif %}
+{% if project.due_date %}Due: {{ project.due_date }}{% endif %}
+{% if project.recent_tasks > 0 %}Recent activity: {{ project.recent_tasks }} tasks completed this week{% else %}⚠️ No progress this week{% endif %}
+
+{% endfor %}
+
+---
+
+## Areas of Responsibility
+
+{% for area in active_areas %}
+**{{ area.title }}**: {% if area.health == 'good' %}✅ Maintained{% elif area.health == 'needs_attention' %}⚠️ Needs attention{% else %}On track{% endif %}
+{% endfor %}
+
+---
+
+## Rollovers & Blockers
+
+{% if rollovers|length > 0 %}
+These tasks didn't get done this week:
+
+{% for rollover in rollovers %}
+### {{ rollover.task_title }}
+- **Overdue by:** {{ rollover.days_overdue }} days
+- **Why:** {% if rollover.days_overdue > 7 %}This has been rolling over for over a week. It may be too big, unclear, or not truly important.{% elif rollover.days_overdue > 3 %}Consistently postponed. Consider if this is actually a priority.{% else %}Recently added to backlog.{% endif %}
+- **Action:** {% if rollover.days_overdue > 7 %}Break into smaller tasks or delete if not essential.{% else %}Schedule a specific 2-hour block to complete this.{% endif %}
+
+{% endfor %}
+{% else %}
+*No rollovers this week - excellent task completion!* 🎯
+{% endif %}
+
+---
+
+## Productivity Patterns
+
+{% if best_day %}
+**Most productive day:** {{ best_day.name }} ({{ best_day.count }} tasks completed)
+{% endif %}
+
+{% if best_time %}
+**Peak performance time:** {{ best_time.period }}
+- *Suggestion:* Block out {{ best_time.period }} for your most important work.
+{% endif %}
+
+{% if consistency_score %}
+**Consistency:** You completed tasks on {{ active_days }}/7 days this week
+{% if active_days >= 5 %}✅ Strong consistency - this compounds over time!{% elif active_days >= 3 %}Good spread - aim for 5+ days next week{% else %}Low activity - try to establish daily momentum{% endif %}
+{% endif %}
+
+---
+
+## Focus for Next Week
+
+{% if next_week_proposals|length > 0 %}
+Based on your current projects and upcoming deadlines:
+
+{% for proposal in next_week_proposals %}
+### {{ proposal.outcome }}
+**Estimated time:** {{ proposal.estimated_hours }} hours
+
+Tasks to complete:
+{% for task in proposal.tasks %}
+- [ ] {{ task }}
+{% endfor %}
+
+{% endfor %}
+{% else %}
+*No upcoming deadlines detected. Good time to tackle backlog or start new initiatives.*
+{% endif %}
+
+---
+
+## Key Insights
+
+{% for insight in insights %}
+- **{{ insight.title }}:** {{ insight.description }}
+{% endfor %}
+
+---
+
+*Review generated on {{ generated_at }}*

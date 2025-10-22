@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     # Anthropic API
     ANTHROPIC_API_KEY: str
 
+    # Groq API (for cost-optimized inference)
+    GROQ_API_KEY: Optional[str] = None
+
     # OpenRouter API (for voice transcription)
     OPENROUTER_API_KEY: Optional[str] = None
 
@@ -41,9 +44,26 @@ class Settings(BaseSettings):
     CLAUDE_MAX_TOKENS: int = 4000
     CLAUDE_TEMPERATURE: float = 0.5
 
+    # Groq Model Configuration
+    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+    GROQ_MAX_TOKENS: int = 4000
+    GROQ_TEMPERATURE: float = 0.3
+
     # Cost tracking (per million tokens)
     CLAUDE_HAIKU_INPUT_COST: float = 1.0
     CLAUDE_HAIKU_OUTPUT_COST: float = 5.0
+    GROQ_LLAMA_INPUT_COST: float = 0.59
+    GROQ_LLAMA_OUTPUT_COST: float = 0.79
+
+    # LLM Provider Mapping (for cost optimization)
+    LLM_PROVIDER_MAP: dict = {
+        'para_classification': 'groq',      # Llama 3.3 70B (free tier)
+        'nlp_parsing': 'deterministic',     # Regex + chrono library
+        'pattern_analysis': 'deterministic', # SQL queries + templates
+        'weekly_review': 'deterministic',    # Jinja2 templates
+        'reprioritization': 'groq',         # Llama 3.3 70B (paid if needed)
+        'conversational_agent': 'anthropic', # Claude Haiku (tool use)
+    }
 
     # Redis Configuration (Phase 6)
     REDIS_URL: str = "redis://localhost:6379"

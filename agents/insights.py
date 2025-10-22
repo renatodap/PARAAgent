@@ -1,18 +1,16 @@
-from anthropic import Anthropic
-from config import settings
 from database import supabase
 from datetime import datetime, timedelta
 from typing import List, Dict, Any
-import json
+from templates.insights_template import generate_productivity_insights, generate_reprioritization_suggestions
 
 class ProactiveInsightsAgent:
     """
-    Agent that proactively analyzes user behavior and provides insights
+    Agent that proactively analyzes user behavior and provides insights.
+    Cost-optimized: Uses deterministic analysis instead of LLM ($0 vs $0.15/week).
     """
 
     def __init__(self):
-        self.client = Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-        self.model = settings.CLAUDE_MODEL
+        pass  # No LLM needed - using deterministic templates
 
     async def analyze_patterns(self, user_id: str) -> Dict[str, Any]:
         """
@@ -40,45 +38,12 @@ class ProactiveInsightsAgent:
         # Identify blockers
         blockers = self._identify_blockers(user_id)
 
-        # Use Claude to generate insights
-        prompt = f"""Analyze this user's productivity patterns and provide actionable insights:
-
-Task Completion by Day:
-{json.dumps(completion_by_day, indent=2)}
-
-Task Completion by Hour:
-{json.dumps(completion_by_hour, indent=2)}
-
-Potential Blockers:
-{json.dumps(blockers, indent=2)}
-
-Provide 3-5 specific, actionable insights about:
-1. When they're most productive
-2. Common blockers
-3. Suggestions for improvement
-
-Return as JSON:
-{{
-  "insights": [
-    {{
-      "type": "productivity_pattern",
-      "title": "...",
-      "description": "...",
-      "action": "...",
-      "impact": "high|medium|low"
-    }}
-  ]
-}}
-"""
-
-        response = self.client.messages.create(
-            model=self.model,
-            max_tokens=2000,
-            messages=[{"role": "user", "content": prompt}]
+        # Generate insights using deterministic templates (cost optimized)
+        insights = generate_productivity_insights(
+            completion_by_day=completion_by_day,
+            completion_by_hour=completion_by_hour,
+            blockers=blockers
         )
-
-        insights_text = response.content[0].text
-        insights = json.loads(insights_text)
 
         return insights
 
@@ -175,7 +140,8 @@ Return as JSON:
 
     async def suggest_reprioritization(self, user_id: str) -> Dict[str, Any]:
         """
-        Suggest re-prioritization when workload is too high
+        Suggest re-prioritization when workload is too high.
+        Cost-optimized: Uses deterministic logic instead of LLM.
         """
 
         # Get tasks due in next 24 hours
@@ -188,41 +154,6 @@ Return as JSON:
             .lte('due_date', tomorrow)\
             .execute()
 
-        if len(urgent_tasks.data) <= 3:
-            return {"needs_reprioritization": False}
-
-        # Too many urgent tasks - suggest reprioritization
-        prompt = f"""This user has {len(urgent_tasks.data)} tasks due in the next 24 hours:
-
-{json.dumps([{
-    'title': t['title'],
-    'priority': t['priority'],
-    'estimated_duration': t.get('estimated_duration_minutes', 0)
-} for t in urgent_tasks.data], indent=2)}
-
-Suggest which tasks should be:
-1. Kept for tomorrow (top 3-5 most important)
-2. Deferred to next week
-3. Potentially delegated or cancelled
-
-Return as JSON:
-{{
-  "needs_reprioritization": true,
-  "message": "...",
-  "suggestions": {{
-    "keep": ["task_id1", "task_id2"],
-    "defer": ["task_id3"],
-    "reconsider": ["task_id4"]
-  }},
-  "reasoning": "..."
-}}
-"""
-
-        response = self.client.messages.create(
-            model=self.model,
-            max_tokens=2000,
-            messages=[{"role": "user", "content": prompt}]
-        )
-
-        suggestion = json.loads(response.content[0].text)
+        # Use deterministic reprioritization logic
+        suggestion = generate_reprioritization_suggestions(urgent_tasks.data)
         return suggestion

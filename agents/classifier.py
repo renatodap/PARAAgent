@@ -1,12 +1,8 @@
-"""PARA Classification Agent using Claude Haiku 4.5."""
+"""PARA Classification Agent - Cost optimized with Groq Llama 3.3 70B."""
 
-from anthropic import Anthropic
 from typing import Dict, List
 import json
-from config import settings
-
-
-client = Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+from llm_provider import llm_provider
 
 
 PARA_CLASSIFICATION_PROMPT = """You are a PARA method expert. Classify the following item into one of these categories:
@@ -70,41 +66,34 @@ def classify_item(title: str, description: str = "", context: str = "") -> Dict:
     )
 
     try:
-        response = client.messages.create(
-            model=settings.CLAUDE_MODEL,
+        # Use LLM provider abstraction - routes to Groq for cost savings
+        response = llm_provider.get_completion(
+            task_type='para_classification',
+            prompt=prompt,
             max_tokens=1000,
-            temperature=0.3,  # Lower temperature for consistent classification
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
+            temperature=0.3  # Lower temperature for consistent classification
         )
 
         # Parse JSON response
-        result = json.loads(response.content[0].text)
+        result = json.loads(response["text"])
 
-        # Add token usage for cost tracking
-        usage = {
-            "input_tokens": response.usage.input_tokens,
-            "output_tokens": response.usage.output_tokens,
-            "cost_usd": calculate_cost(response.usage.input_tokens, response.usage.output_tokens)
-        }
-
-        return {**result, "usage": usage}
+        # Add token usage from provider response
+        return {**result, "usage": response["usage"]}
 
     except json.JSONDecodeError as e:
         # If JSON parsing fails, try to extract what we can
-        raw_text = response.content[0].text
+        raw_text = response.get("text", "")
         return {
             "para_type": "resource",  # Default fallback
             "confidence": 0.5,
             "reasoning": f"Classification uncertain. Raw response: {raw_text[:200]}",
             "suggested_next_actions": ["Review and manually classify this item"],
             "estimated_duration_weeks": None,
-            "usage": {
-                "input_tokens": response.usage.input_tokens,
-                "output_tokens": response.usage.output_tokens,
-                "cost_usd": calculate_cost(response.usage.input_tokens, response.usage.output_tokens)
-            }
+            "usage": response.get("usage", {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cost_usd": 0.0
+            })
         }
     except Exception as e:
         # Handle API errors
@@ -120,23 +109,6 @@ def classify_item(title: str, description: str = "", context: str = "") -> Dict:
                 "cost_usd": 0.0
             }
         }
-
-
-def calculate_cost(input_tokens: int, output_tokens: int) -> float:
-    """Calculate cost for Claude Haiku 4.5.
-
-    Pricing: $1/M input tokens, $5/M output tokens
-
-    Args:
-        input_tokens: Number of input tokens
-        output_tokens: Number of output tokens
-
-    Returns:
-        Total cost in USD
-    """
-    input_cost = (input_tokens / 1_000_000) * settings.CLAUDE_HAIKU_INPUT_COST
-    output_cost = (output_tokens / 1_000_000) * settings.CLAUDE_HAIKU_OUTPUT_COST
-    return round(input_cost + output_cost, 6)
 
 
 def batch_classify_items(items: List[Dict]) -> List[Dict]:

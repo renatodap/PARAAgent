@@ -1,14 +1,9 @@
-"""Weekly Review Agent using Claude Haiku 4.5."""
+"""Weekly Review Agent - Cost optimized with Jinja2 templates."""
 
-from anthropic import Anthropic
 from datetime import datetime, timedelta
 from typing import List, Dict
-import json
-from config import settings
 from database import supabase
-
-
-client = Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+from templates.weekly_review_generator import generate_weekly_review as generate_review_from_template
 
 
 WEEKLY_REVIEW_PROMPT = """You are a personal productivity coach conducting a weekly review using the PARA method.
@@ -113,34 +108,46 @@ def generate_weekly_review(user_id: str, week_start: datetime) -> Dict:
     completed_tasks = fetch_completed_tasks(user_id, week_start, week_end)
     active_projects = fetch_active_projects(user_id)
     active_areas = fetch_active_areas(user_id)
-    calendar_events = fetch_calendar_events(user_id, week_start, week_end)
 
-    # Format data for prompt
-    tasks_summary = format_tasks_summary(completed_tasks)
-    projects_summary = format_para_items_summary(active_projects)
-    areas_summary = format_para_items_summary(active_areas)
-    events_summary = format_calendar_summary(calendar_events)
+    # Calculate completion patterns
+    completion_by_day = {}
+    completion_by_hour = {}
+    for task in completed_tasks:
+        if task.get('completed_at'):
+            completed_date = datetime.fromisoformat(task['completed_at'])
+            day_name = completed_date.strftime('%A')
+            completion_by_day[day_name] = completion_by_day.get(day_name, 0) + 1
 
-    prompt = WEEKLY_REVIEW_PROMPT.format(
-        week_start=week_start.strftime("%Y-%m-%d"),
-        week_end=week_end.strftime("%Y-%m-%d"),
-        completed_count=len(completed_tasks),
-        completed_tasks=tasks_summary,
-        active_projects=projects_summary,
-        active_areas=areas_summary,
-        calendar_events=events_summary
-    )
+            hour = completed_date.hour
+            if 6 <= hour < 9:
+                period = "Early Morning (6-9am)"
+            elif 9 <= hour < 12:
+                period = "Morning (9am-12pm)"
+            elif 12 <= hour < 14:
+                period = "Lunch (12-2pm)"
+            elif 14 <= hour < 17:
+                period = "Afternoon (2-5pm)"
+            elif 17 <= hour < 20:
+                period = "Evening (5-8pm)"
+            else:
+                period = "Night (8pm+)"
+            completion_by_hour[period] = completion_by_hour.get(period, 0) + 1
+
+    # Fetch rollover tasks
+    rollovers = fetch_rollover_tasks(user_id, week_start)
 
     try:
-        response = client.messages.create(
-            model=settings.CLAUDE_MODEL,
-            max_tokens=settings.CLAUDE_MAX_TOKENS,
-            temperature=0.7,  # Higher temperature for more natural, varied language
-            messages=[{"role": "user", "content": prompt}]
+        # Generate review using deterministic template (cost optimized)
+        review_data = generate_review_from_template(
+            week_start=week_start,
+            week_end=week_end,
+            completed_tasks=completed_tasks,
+            active_projects=active_projects,
+            active_areas=active_areas,
+            rollovers=rollovers,
+            completion_by_day=completion_by_day,
+            completion_by_hour=completion_by_hour
         )
-
-        # Parse JSON response
-        review_data = json.loads(response.content[0].text)
 
         # Save to database
         saved_review = supabase.table("weekly_reviews").insert({
@@ -155,24 +162,12 @@ def generate_weekly_review(user_id: str, week_start: datetime) -> Dict:
             "status": "draft"
         }).execute()
 
-        usage = {
-            "tokens": response.usage.input_tokens + response.usage.output_tokens,
-            "cost_usd": calculate_cost(response.usage.input_tokens, response.usage.output_tokens)
-        }
-
         return {
             "review_id": saved_review.data[0]["id"],
             "review_data": review_data,
-            "usage": usage
+            "usage": {"tokens": 0, "cost_usd": 0.0}  # No LLM cost with templates!
         }
 
-    except json.JSONDecodeError as e:
-        # Handle JSON parsing errors
-        return {
-            "review_id": None,
-            "review_data": {"error": "Failed to parse review"},
-            "usage": {"tokens": 0, "cost_usd": 0.0}
-        }
     except Exception as e:
         return {
             "review_id": None,
@@ -214,6 +209,28 @@ def fetch_active_areas(user_id: str) -> List[Dict]:
         .eq("status", "active")\
         .execute()
     return result.data
+
+
+def fetch_rollover_tasks(user_id: str, week_start: datetime) -> List[Dict]:
+    """Fetch tasks that rolled over (overdue at start of week)."""
+    result = supabase.table("tasks")\
+        .select("id, title, due_date")\
+        .eq("user_id", user_id)\
+        .eq("status", "pending")\
+        .lt("due_date", week_start.isoformat())\
+        .execute()
+
+    rollovers = []
+    for task in result.data:
+        if task.get('due_date'):
+            days_overdue = (week_start - datetime.fromisoformat(task['due_date'])).days
+            rollovers.append({
+                "task_id": task['id'],
+                "task_title": task['title'],
+                "days_overdue": days_overdue
+            })
+
+    return rollovers
 
 
 def fetch_calendar_events(user_id: str, start: datetime, end: datetime) -> List[Dict]:
